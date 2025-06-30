@@ -1,0 +1,1 @@
+"""CV Rating App package"""

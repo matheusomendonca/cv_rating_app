@@ -1,0 +1,51 @@
+Vaga: Analista de Otimização Júnior
+Local: Belo Horizonte/MG – Híbrido
+Empresa: Enacom – Engenharia e Otimização de Processos
+
+Sobre a Enacom
+Somos especialistas em engenharia de decisão, otimização e Gêmeos Digitais aplicados a processos industriais complexos. Atuamos com grandes players da indústria brasileira, combinando ciência de dados, pesquisa operacional e automação de decisões para gerar impacto real.
+
+Sobre a vaga
+Buscamos um(a) Analista Júnior para compor o time de Otimização, apoiando no desenvolvimento, manutenção e validação de modelos matemáticos, simulações e ferramentas de apoio à decisão.
+
+Responsabilidades
+Apoiar na modelagem e implementação de algoritmos de otimização (ex: problemas de escalonamento, alocação, roteirização);
+
+Participar da coleta, análise e preparação de dados industriais (integração com ERPs, historians, sensores);
+
+Suportar a construção de simuladores e Gêmeos Digitais para apoiar decisões operacionais e táticas;
+
+Executar testes, análises de sensibilidade e validações de modelos com especialistas da operação;
+
+Documentar processos, restrições e hipóteses dos modelos com clareza e visão de negócio.
+
+Requisitos
+Formação completa ou em andamento (últimos períodos) em Engenharia, Ciência da Computação, Estatística, Matemática ou áreas correlatas;
+
+Conhecimentos em programação Python (pandas, numpy, matplotlib);
+
+Interesse em otimização matemática (linear, inteira, heurísticas) e/ou simulação de processos;
+
+Facilidade para lidar com dados reais, incompletos ou ruidosos;
+
+Perfil analítico, colaborativo e com vontade de aprender.
+
+Diferenciais
+Conhecimento em modelagem com Pyomo, OR-Tools, Gurobi, PuLP ou similares;
+
+Experiência com dados industriais (automação, tempo real, banco de dados);
+
+Familiaridade com conceitos de Pesquisa Operacional ou Gêmeos Digitais;
+
+Vivência com notebooks Jupyter, Git e boas práticas de versionamento.
+
+O que oferecemos
+Ambiente de aprendizado acelerado com projetos desafiadores;
+
+Oportunidade de atuar com líderes de referência em otimização industrial;
+
+Cultura orientada a dados, aprendizado contínuo e entrega de valor;
+
+Participação em projetos com grandes indústrias nacionais;
+
+Regime de trabalho híbrido e flexibilidade de horários.
