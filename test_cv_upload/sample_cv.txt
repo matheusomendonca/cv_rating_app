@@ -1,0 +1,119 @@
+CURRÍCULO VITAE
+
+DADOS PESSOAIS
+Nome: João Silva Santos
+Email: joao.silva@email.com
+Telefone: (11) 99999-9999
+Endereço: Rua das Flores, 123 - São Paulo, SP
+LinkedIn: linkedin.com/in/joaosilva
+
+PERFIL PROFISSIONAL
+Desenvolvedor Full-Stack com 5 anos de experiência em desenvolvimento web, especializado em Python, JavaScript e React. Possuo sólidos conhecimentos em bancos de dados, APIs RESTful e metodologias ágeis. Sou apaixonado por tecnologia e sempre busco aprender novas ferramentas e frameworks.
+
+EXPERIÊNCIA PROFISSIONAL
+
+Desenvolvedor Full-Stack Sênior
+Empresa: TechCorp Brasil
+Período: Janeiro 2022 - Presente
+Localização: São Paulo, SP
+
+• Desenvolvimento de aplicações web utilizando Python (Django/Flask) e JavaScript (React/Node.js)
+• Implementação de APIs RESTful e integração com bancos de dados PostgreSQL e MongoDB
+• Liderança técnica de equipes de desenvolvimento com 3-5 desenvolvedores
+• Otimização de performance e escalabilidade de aplicações
+• Mentoria de desenvolvedores júniores e code review
+
+Desenvolvedor Full-Stack Pleno
+Empresa: StartupXYZ
+Período: Março 2020 - Dezembro 2021
+Localização: São Paulo, SP
+
+• Desenvolvimento de aplicações web responsivas usando React, Node.js e Python
+• Implementação de funcionalidades de autenticação e autorização
+• Integração com serviços de terceiros (APIs de pagamento, email, etc.)
+• Participação em reuniões de planejamento e retrospectivas ágeis
+
+Desenvolvedor Frontend Júnior
+Empresa: WebSolutions
+Período: Janeiro 2019 - Fevereiro 2020
+Localização: São Paulo, SP
+
+• Desenvolvimento de interfaces de usuário usando HTML, CSS, JavaScript e React
+• Implementação de designs responsivos e acessíveis
+• Otimização de performance frontend
+• Trabalho em equipe com designers e desenvolvedores backend
+
+FORMAÇÃO ACADÊMICA
+
+Bacharel em Ciência da Computação
+Universidade de São Paulo (USP)
+Período: 2015 - 2019
+Conclusão: Dezembro 2019
+
+TÉCNICAS E FERRAMENTAS
+
+Linguagens de Programação:
+• Python (avançado)
+• JavaScript/TypeScript (avançado)
+• Java (intermediário)
+• SQL (avançado)
+
+Frameworks e Bibliotecas:
+• Django, Flask (Python)
+• React, Node.js, Express (JavaScript)
+• Bootstrap, Material-UI (CSS)
+• Jest, PyTest (Testes)
+
+Bancos de Dados:
+• PostgreSQL, MySQL
+• MongoDB, Redis
+• SQLite
+
+Ferramentas e Tecnologias:
+• Git, GitHub, GitLab
+• Docker, Kubernetes
+• AWS, Google Cloud
+• Jenkins, GitHub Actions
+• Jira, Trello
+
+IDIOMAS
+• Português (Nativo)
+• Inglês (Fluente)
+• Espanhol (Intermediário)
+
+CERTIFICAÇÕES
+• AWS Certified Developer Associate
+• Google Cloud Professional Developer
+• Scrum Master Certified (SMC)
+
+PROJETOS DESTACADOS
+
+E-commerce Platform
+• Desenvolvimento completo de plataforma de e-commerce usando Django e React
+• Implementação de sistema de pagamentos, gestão de estoque e relatórios
+• Deploy em AWS com CI/CD automatizado
+
+Sistema de Gestão Empresarial
+• Desenvolvimento de sistema ERP para pequenas empresas
+• Módulos de vendas, financeiro, estoque e RH
+• Interface responsiva e relatórios em tempo real
+
+API de Microserviços
+• Arquitetura de microserviços usando Python e Node.js
+• Comunicação via REST APIs e message queues
+• Monitoramento e logging centralizado
+
+COMPETÊNCIAS COMPORTAMENTAIS
+• Trabalho em equipe e colaboração
+• Resolução de problemas complexos
+• Comunicação efetiva
+• Aprendizado contínuo
+• Gestão de tempo e prioridades
+• Liderança técnica
+
+INTERESSES
+• Inteligência Artificial e Machine Learning
+• Arquitetura de software
+• Open Source
+• Inovação tecnológica
+• Mentoria e ensino 

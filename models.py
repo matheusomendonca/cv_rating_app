@@ -7,6 +7,8 @@ class CandidateInfo(BaseModel):
     name: str
     email: str
     phone: Optional[str] = None
+    uf: Optional[str] = None  # Estado/State
+    city: Optional[str] = None  # Cidade/City
     languages: List[str] = Field(default_factory=list)
     programming_languages: List[str] = Field(default_factory=list)
     frameworks: List[str] = Field(default_factory=list)

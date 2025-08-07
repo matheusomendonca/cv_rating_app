@@ -87,74 +87,76 @@ class JudgeAgent:
         return all_judge_ratings
 
     def _judge_batch(self, candidates: list[CandidateInfo], ratings: list[CandidateRating]) -> list[JudgeRating]:
-        """Judge a batch of candidates."""
+        """Judge a batch of candidates for fairness and consistency."""
         
-        # Create a summary of all candidates and their initial ratings
-        candidates_summary = []
-        for candidate, rating in zip(candidates, ratings):
-            candidates_summary.append({
-                "file": candidate.file,
-                "name": candidate.name,
-                "candidate_info": candidate.model_dump(),
-                "initial_rating": rating.model_dump()
-            })
+        # Create a detailed prompt for the batch
+        candidates_info = []
+        for i, (candidate, rating) in enumerate(zip(candidates, ratings)):
+            candidate_info = f"""
+            CANDIDATO {i+1}:
+            Nome: {candidate.name}
+            Email: {candidate.email}
+            UF: {candidate.uf or 'Não fornecido'}
+            Cidade: {candidate.city or 'Não fornecida'}
+            Idiomas: {', '.join(candidate.languages) if candidate.languages else 'Não especificado'}
+            Linguagens de Programação: {', '.join(candidate.programming_languages) if candidate.programming_languages else 'Não especificado'}
+            Frameworks: {', '.join(candidate.frameworks) if candidate.frameworks else 'Não especificado'}
+            Anos de Experiência: {candidate.years_experience or 'Não especificado'}
+            Educação: {candidate.education or 'Não especificado'}
+            Resumo: {candidate.summary or 'Não fornecido'}
+            Pontuação Inicial: {rating.score}
+            Pontos Fortes: {rating.strengths or 'Não especificado'}
+            Pontos Fracos: {rating.weaknesses or 'Não especificado'}
+            Justificativa: {rating.rationale or 'Não especificado'}
+            """
+            candidates_info.append(candidate_info)
         
-        prompt = f"""You are a senior technical recruiter acting as a judge. You have received initial ratings for all candidates and must re-rate them to ensure fairness and consistency across all evaluations.
+        prompt = f"""
+        Você é um juiz especializado em recrutamento técnico. Sua tarefa é re-avaliar um grupo de candidatos para garantir justiça e consistência nas avaliações.
 
-        Your role is to:
-        1. Review all candidates and their initial ratings
-        2. Identify any inconsistencies in the rating scale
-        3. Ensure fair comparison between candidates
-        4. Provide final scores that are consistent and justifiable
-        5. Consider the relative strengths and weaknesses across all candidates
-        6. Do not consider the candidate's name or other personal information when rating them
+        Valores da Empresa (considere estes em sua avaliação):
+        - SIMPLICIDADE, CLAREZA E OBJETIVIDADE
+        - PESSOAS COMO FOCO E FONTE DAS TRANSFORMAÇÕES
+        - RELAÇÕES DE LONGO PRAZO
+        - EXCELÊNCIA
+        - INOVAÇÃO CONTÍNUA (2019)
+        - CORAGEM PARA INOVAR (2022)
+        - RESPEITO À NATUREZA E
 
-        Job description:
+        Descrição da Vaga:
         {self.job_description}
 
-        All candidates and their initial ratings:
-        {json.dumps(candidates_summary, indent=2)}
+        Candidatos para Re-avaliação:
+        {chr(10).join(candidates_info)}
 
-        Instructions:
-        - Rate each candidate on a scale of 0-10
-        - Ensure your ratings are consistent and fair across all candidates
-        - Consider the relative strengths and weaknesses when comparing candidates
-        - Provide a brief rationale for any significant changes from initial ratings
-        - Focus on the candidate's fit for the specific job requirements
-        - Ensure the seniority level of the candidate is consistent with the job description, if it is not, even if the candidate is a good fit, adjust the score accordingly
+        Instruções:
+        1. Compare todos os candidatos entre si para garantir consistência
+        2. Ajuste pontuações se necessário para refletir diferenças reais
+        3. Considere o contexto completo de cada candidato
+        4. Mantenha a escala de 0-10
+        5. Forneça justificativas claras para qualquer ajuste
 
-        IMPORTANT: Return a JSON array (list) where each object contains:
-        - file: the candidate's file name
-        - score: your final score (0-10)
-        - strengths: key strengths for this role
-        - weaknesses: areas of concern
-        - rationale: brief explanation of your rating
-        - initial_score: the original score for comparison
-        - score_adjustment: explanation of any significant changes from initial rating
+        IMPORTANTE: Retorne um array JSON com exatamente {len(candidates)} objetos, um para cada candidato na mesma ordem.
 
-        Example format:
+        Formato de resposta OBRIGATÓRIO:
         [
-          {{
-            "file": "candidate1.pdf",
-            "score": 8.5,
-            "strengths": "Strong Python skills",
-            "weaknesses": "Limited frontend experience",
-            "rationale": "Good fit for backend role",
-            "initial_score": 7.0,
-            "score_adjustment": "Increased score due to strong backend skills"
-          }},
-          {{
-            "file": "candidate2.pdf",
-            "score": 6.0,
-            "strengths": "Good communication skills",
-            "weaknesses": "Limited technical experience",
-            "rationale": "Junior level candidate",
-            "initial_score": 7.5,
-            "score_adjustment": "Reduced score due to lack of required experience"
-          }}
+            {{
+                "score": 8.5,
+                "strengths": "Pontos fortes do candidato 1",
+                "weaknesses": "Pontos fracos do candidato 1",
+                "rationale": "Justificativa da pontuação do candidato 1",
+                "score_adjustment": "Explicação do ajuste (se houver)"
+            }},
+            {{
+                "score": 7.0,
+                "strengths": "Pontos fortes do candidato 2",
+                "weaknesses": "Pontos fracos do candidato 2",
+                "rationale": "Justificativa da pontuação do candidato 2",
+                "score_adjustment": "Explicação do ajuste (se houver)"
+            }}
         ]
 
-        Return only valid JSON array.
+        ATENÇÃO: Use exatamente estes nomes de campos: "score", "strengths", "weaknesses", "rationale", "score_adjustment"
         """
 
         # Retry logic for LLM calls
@@ -164,56 +166,39 @@ class JudgeAgent:
                 response = openai.chat.completions.create(
                     model=self.model,
                     messages=[
-                        {"role": "system", "content": "You are a helpful assistant who returns JSON only."},
+                        {"role": "system", "content": "Você é um juiz especializado em recrutamento técnico. Re-avalie candidatos para garantir justiça e consistência. Retorne sempre as avaliações em português brasileiro. IMPORTANTE: Retorne sempre um array JSON com exatamente o número de candidatos fornecido."},
                         {"role": "user", "content": prompt}
                     ],
                     response_format={"type": "json_object"},
                     temperature=0
                 )
+                
                 content = response.choices[0].message.content
                 if content is None:
                     raise ValueError("No content received from OpenAI")
                 
-                # Debug: Print the raw response
-                print(f"DEBUG: Raw LLM response length: {len(content)} characters")
+                data = json.loads(content)
                 
-                # Parse the response - it should be an array of judge ratings, or a dict with 'ratings', or a single dict
-                try:
-                    parsed = json.loads(content)
-                    print(f"DEBUG: Parsed JSON type: {type(parsed)}")
-                    
-                    if isinstance(parsed, list):
-                        ratings_array = parsed
-                    elif isinstance(parsed, dict):
-                        # If it's a dict with a 'ratings' key, use that
-                        if "ratings" in parsed and isinstance(parsed["ratings"], list):
-                            ratings_array = parsed["ratings"]
-                        # If it's a dict that looks like a single rating, wrap it in a list
-                        elif all(k in parsed for k in ("file", "score")):
-                            ratings_array = [parsed]
-                        # Try to find any list in the dict that might contain ratings
-                        elif any(isinstance(v, list) for v in parsed.values()):
-                            for key, value in parsed.items():
-                                if isinstance(value, list) and value and isinstance(value[0], dict) and "file" in value[0]:
-                                    ratings_array = value
-                                    break
-                            else:
-                                raise ValueError(f"Expected array of ratings or dict with 'ratings' key or a single rating dict. Got: {type(parsed)} with keys: {list(parsed.keys())}")
-                        else:
-                            raise ValueError(f"Expected array of ratings or dict with 'ratings' key or a single rating dict. Got: {type(parsed)} with keys: {list(parsed.keys())}")
-                    else:
-                        raise ValueError(f"Expected array or dict in judge response, got: {type(parsed)}")
-                except json.JSONDecodeError as e:
-                    print(f"DEBUG: JSON decode error: {e}")
-                    raise ValueError("Invalid JSON response from judge agent")
+                # Parse the response - handle different formats
+                ratings_array = []
+                if isinstance(data, list):
+                    ratings_array = data
+                elif isinstance(data, dict) and 'ratings' in data:
+                    ratings_array = data['ratings']
+                elif isinstance(data, dict) and 'candidatos' in data:
+                    ratings_array = data['candidatos']
+                elif isinstance(data, dict):
+                    # Single rating case
+                    ratings_array = [data]
+                else:
+                    raise ValueError(f"Unexpected response format: {type(data)}")
                 
-                print(f"DEBUG: Final ratings array length: {len(ratings_array)}")
-                
-                # Fallback: if we can't parse the response, create judge ratings from original ratings
-                if not ratings_array:
-                    print("WARNING: No ratings found in response, creating fallback ratings")
+                # Validate we got the right number of ratings
+                if len(ratings_array) != len(candidates):
+                    print(f"Warning: Expected {len(candidates)} ratings, got {len(ratings_array)}")
+                    # Fallback: use original ratings
                     judge_ratings = []
-                    for candidate, rating in zip(candidates, ratings):
+                    for i, (candidate, rating) in enumerate(zip(candidates, ratings)):
                         judge_ratings.append(JudgeRating(
                             candidate_id=candidate.candidate_id,
                             file=candidate.file,
@@ -222,58 +207,65 @@ class JudgeAgent:
                             weaknesses=rating.weaknesses,
                             rationale=rating.rationale,
                             initial_score=rating.score,
-                            score_adjustment="No adjustment - using original rating due to parsing error"
+                            score_adjustment="Avaliação original mantida devido a erro de processamento"
                         ))
                     return judge_ratings
                 
+                # Process the ratings
                 judge_ratings = []
-                # Ensure we have the same number of ratings as candidates
-                if len(ratings_array) != len(candidates):
-                    print(f"WARNING: LLM returned {len(ratings_array)} ratings for {len(candidates)} candidates")
-                    # If we have fewer ratings than candidates, create fallback ratings for missing ones
-                    for i, (candidate, rating) in enumerate(zip(candidates, ratings)):
-                        if i < len(ratings_array):
-                            rating_data = ratings_array[i].copy()  # Make a copy to avoid modifying original
-                            rating_data.pop('file', None)  # Remove file to avoid duplicate argument
-                            # Handle strengths and weaknesses fields - convert lists to strings if needed
-                            if isinstance(rating_data.get('strengths'), list):
-                                rating_data['strengths'] = ', '.join(str(item) for item in rating_data['strengths'])
-                            if isinstance(rating_data.get('weaknesses'), list):
-                                rating_data['weaknesses'] = ', '.join(str(item) for item in rating_data['weaknesses'])
-                            # Always include candidate_id from the original candidate
-                            judge_ratings.append(JudgeRating(candidate_id=candidate.candidate_id, file=candidate.file, **rating_data))
+                for i, (rating_data, candidate, rating) in enumerate(zip(ratings_array, candidates, ratings)):
+                    try:
+                        rating_data = rating_data.copy()  # Make a copy
+                        rating_data.pop('file', None)  # Remove file to avoid duplicate
+                        
+                        # Ensure all required fields are present
+                        if 'score' not in rating_data:
+                            rating_data['score'] = rating.score
                         else:
-                            # Create fallback rating for missing candidate
-                            judge_ratings.append(JudgeRating(
-                                candidate_id=candidate.candidate_id,
-                                file=candidate.file,
-                                score=rating.score,
-                                strengths=rating.strengths,
-                                weaknesses=rating.weaknesses,
-                                rationale=rating.rationale,
-                                initial_score=rating.score,
-                                score_adjustment="No adjustment - using original rating due to missing LLM response"
-                            ))
-                else:
-                    # Normal case: same number of ratings as candidates
-                    for rating_data, candidate, rating in zip(ratings_array, candidates, ratings):
-                        rating_data = rating_data.copy()  # Make a copy to avoid modifying original
-                        rating_data.pop('file', None)  # Remove file to avoid duplicate argument
-                        # Handle strengths and weaknesses fields - convert lists to strings if needed
-                        if isinstance(rating_data.get('strengths'), list):
-                            rating_data['strengths'] = ', '.join(str(item) for item in rating_data['strengths'])
-                        if isinstance(rating_data.get('weaknesses'), list):
-                            rating_data['weaknesses'] = ', '.join(str(item) for item in rating_data['weaknesses'])
-                        # Always include candidate_id from the original candidate
-                        judge_ratings.append(JudgeRating(candidate_id=candidate.candidate_id, file=candidate.file, **rating_data))
+                            # Ensure score is numeric
+                            try:
+                                rating_data['score'] = float(rating_data['score'])
+                            except (ValueError, TypeError):
+                                print(f"Warning: Invalid score value '{rating_data['score']}' for candidate {candidate.name}, using original score")
+                                rating_data['score'] = rating.score
+                                
+                        if 'strengths' not in rating_data:
+                            rating_data['strengths'] = rating.strengths
+                        if 'weaknesses' not in rating_data:
+                            rating_data['weaknesses'] = rating.weaknesses
+                        if 'rationale' not in rating_data:
+                            rating_data['rationale'] = rating.rationale
+                        if 'score_adjustment' not in rating_data:
+                            rating_data['score_adjustment'] = "Sem ajuste necessário"
+                        
+                        judge_rating = JudgeRating(
+                            candidate_id=candidate.candidate_id,
+                            file=candidate.file,
+                            initial_score=rating.score,
+                            **rating_data
+                        )
+                        
+                        judge_ratings.append(judge_rating)
+                    except Exception as e:
+                        print(f"Error processing rating {i}: {e}")
+                        # Fallback to original rating
+                        judge_ratings.append(JudgeRating(
+                            candidate_id=candidate.candidate_id,
+                            file=candidate.file,
+                            score=rating.score,
+                            strengths=rating.strengths,
+                            weaknesses=rating.weaknesses,
+                            rationale=rating.rationale,
+                            initial_score=rating.score,
+                            score_adjustment="Avaliação original mantida devido a erro de processamento"
+                        ))
                 
                 return judge_ratings
                 
             except Exception as e:
                 print(f"Attempt {attempt + 1} failed: {e}")
                 if attempt == max_retries - 1:
-                    # Last attempt failed, create fallback ratings
-                    print(f"All {max_retries} attempts failed, creating fallback ratings")
+                    # Final fallback: return original ratings
                     judge_ratings = []
                     for candidate, rating in zip(candidates, ratings):
                         judge_ratings.append(JudgeRating(
@@ -284,25 +276,9 @@ class JudgeAgent:
                             weaknesses=rating.weaknesses,
                             rationale=rating.rationale,
                             initial_score=rating.score,
-                            score_adjustment=f"No adjustment - using original rating due to LLM failure after {max_retries} attempts"
+                            score_adjustment="Avaliação original mantida devido a erro de processamento"
                         ))
                     return judge_ratings
                 else:
-                    # Wait before retrying
                     import time
-                    time.sleep(2 ** attempt)  # Exponential backoff
-        
-        # This should never be reached, but just in case
-        judge_ratings = []
-        for candidate, rating in zip(candidates, ratings):
-            judge_ratings.append(JudgeRating(
-                candidate_id=candidate.candidate_id,
-                file=candidate.file,
-                score=rating.score,
-                strengths=rating.strengths,
-                weaknesses=rating.weaknesses,
-                rationale=rating.rationale,
-                initial_score=rating.score,
-                score_adjustment="No adjustment - using original rating due to unexpected error"
-            ))
-        return judge_ratings 
+                    time.sleep(2 ** attempt)  # Exponential backoff 

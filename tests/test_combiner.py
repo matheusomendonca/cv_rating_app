@@ -8,6 +8,8 @@ def test_combine():
         file="a.pdf",
         name="Alice",
         email="alice@example.com",
+        uf="SP",
+        city="São Paulo",
         languages=["Python"],
         programming_languages=[],
         frameworks=[],
@@ -25,8 +27,12 @@ def test_combine():
         rationale=None
     )
     df = combine([info], [rating])
-    assert df.iloc[0]["initial_score"] == 90
-    assert df.iloc[0]["name"] == "Alice"
+    assert df.iloc[0]["Pontuação Inicial"] == "90,0"  # Brazilian format with comma
+    assert df.iloc[0]["Nome"] == "Alice"
+    assert df.iloc[0]["Email"] == "alice@example.com"
+    assert df.iloc[0]["UF"] == "SP"
+    assert df.iloc[0]["Cidade"] == "São Paulo"
+    assert "Python" in df.iloc[0]["Idiomas"]
 
 def test_integration_final_candidate_count():
     """Integration test: number of final candidates matches input infos."""

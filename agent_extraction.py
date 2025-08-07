@@ -13,29 +13,33 @@ class ExtractionAgent:
         openai.api_key = os.getenv("OPENAI_API_KEY")
 
     def extract(self, cv_data: Dict) -> CandidateInfo:
-        prompt = f"""Extract the following candidate information from the CV text below and return it as a JSON object with these exact fields:
+        prompt = f"""Extraia as seguintes informações do candidato do texto do CV abaixo e retorne como um objeto JSON com estes campos exatos:
 
         {{
-            "name": "string - full name",
-            "email": "string - primary email address", 
-            "phone": "string or null - phone number if available",
-            "languages": ["array of strings - spoken language names only"],
-            "programming_languages": ["array of strings - programming language names only"],
-            "frameworks": ["array of strings - framework names only"],
-            "years_experience": "integer or null - total years of experience",
-            "education": "string or null - education summary (degree, institution, year)",
-            "summary": "string or null - professional summary"
+            "name": "string - nome completo",
+            "email": "string - endereço de email principal", 
+            "phone": "string ou null - número de telefone se disponível",
+            "uf": "string ou null - sigla do estado brasileiro (SP, RJ, MG, etc.)",
+            "city": "string ou null - nome da cidade",
+            "languages": ["array de strings - apenas nomes dos idiomas falados"],
+            "programming_languages": ["array de strings - apenas nomes das linguagens de programação"],
+            "frameworks": ["array de strings - apenas nomes dos frameworks"],
+            "years_experience": "integer ou null - total de anos de experiência",
+            "education": "string ou null - resumo da educação (diploma, instituição, ano)",
+            "summary": "string ou null - resumo profissional"
         }}
 
-        Important:
-        - For languages: return only language names as strings, not objects
-        - For programming_languages: return only programming language names as strings, not objects
-        - For frameworks: return only framework names as strings, not objects
-        - For education: provide a concise summary, not detailed objects
-        - For years_experience: return only the number, not text
-        - For email: return only the primary email, not a list
+        Importante:
+        - Para idiomas: retorne apenas nomes dos idiomas como strings, não objetos
+        - Para linguagens de programação: retorne apenas nomes das linguagens como strings, não objetos
+        - Para frameworks: retorne apenas nomes dos frameworks como strings, não objetos
+        - Para educação: forneça um resumo conciso, não objetos detalhados
+        - Para anos de experiência: retorne apenas o número, não texto
+        - Para email: retorne apenas o email principal, não uma lista
+        - Para UF: retorne apenas a sigla do estado brasileiro (ex: SP, RJ, MG, RS, etc.)
+        - Para cidade: retorne apenas o nome da cidade
 
-        CV TEXT:
+        TEXTO DO CV:
         {cv_data['content']}
         """
         
@@ -43,35 +47,37 @@ class ExtractionAgent:
         extraction_schema = {
             "type": "object",
             "properties": {
-                "name": {"type": "string", "description": "Full name of the candidate"},
-                "email": {"type": "string", "description": "Primary email address"},
-                "phone": {"type": ["string", "null"], "description": "Phone number if available"},
+                "name": {"type": "string", "description": "Nome completo do candidato"},
+                "email": {"type": "string", "description": "Endereço de email principal"},
+                "phone": {"type": ["string", "null"], "description": "Número de telefone se disponível"},
+                "uf": {"type": ["string", "null"], "description": "Sigla do estado brasileiro"},
+                "city": {"type": ["string", "null"], "description": "Nome da cidade"},
                 "languages": {
                     "type": "array", 
                     "items": {"type": "string"},
-                    "description": "List of languages the candidate knows"
+                    "description": "Lista de idiomas que o candidato conhece"
                 },
                 "programming_languages": {
                     "type": "array", 
                     "items": {"type": "string"},
-                    "description": "List of programming languages the candidate knows"
+                    "description": "Lista de linguagens de programação que o candidato conhece"
                 },
                 "frameworks": { 
                     "type": "array", 
                     "items": {"type": "string"},
-                    "description": "List of frameworks the candidate knows"
+                    "description": "Lista de frameworks que o candidato conhece"
                 },
                 "years_experience": {
                     "type": ["integer", "null"], 
-                    "description": "Total years of professional experience"
+                    "description": "Total de anos de experiência profissional"
                 },
                 "education": {
                     "type": ["string", "null"], 
-                    "description": "Education summary (degree, institution, year)"
+                    "description": "Resumo da educação (diploma, instituição, ano)"
                 },
                 "summary": {
                     "type": ["string", "null"], 
-                    "description": "Professional summary or objective"
+                    "description": "Resumo profissional ou objetivo"
                 }
             },
             "required": ["name", "email"]
@@ -80,7 +86,7 @@ class ExtractionAgent:
         response = openai.chat.completions.create(
             model=self.model,
             messages=[
-                {"role": "system", "content": "You are an expert HR assistant. Extract candidate information and return it in the exact JSON structure specified. For languages, return only language names as strings. For education, provide a concise summary. For years_experience, return only the number."},
+                {"role": "system", "content": "Você é um assistente de RH especializado. Extraia informações do candidato e retorne na estrutura JSON exata especificada. Para idiomas, retorne apenas nomes dos idiomas como strings. Para educação, forneça um resumo conciso. Para anos_experience, retorne apenas o número. Para UF, retorne apenas a sigla do estado brasileiro. Para cidade, retorne apenas o nome da cidade."},
                 {"role": "user", "content": prompt}
             ],
             response_format={"type": "json_object"},
@@ -129,10 +135,32 @@ class ExtractionAgent:
             else:
                 data['years_experience'] = None
         
+        # Handle UF - normalize Brazilian state abbreviations
+        if data.get('uf'):
+            uf = str(data['uf']).strip().upper()
+            # Common Brazilian state abbreviations
+            brazilian_states = {
+                'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 
+                'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 
+                'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+            }
+            if uf in brazilian_states:
+                data['uf'] = uf
+            else:
+                data['uf'] = None
+        
+        # Handle city - normalize city names
+        if data.get('city'):
+            city = str(data['city']).strip()
+            if city and len(city) > 0:
+                data['city'] = city.title()  # Capitalize first letter of each word
+            else:
+                data['city'] = None
+        
         # Ensure required fields have defaults
         if data.get('name') is None:
-            data['name'] = "Unknown"
+            data['name'] = "Desconhecido"
         if data.get('email') is None:
-            data['email'] = "No email provided"
+            data['email'] = "Email não fornecido"
         
         return CandidateInfo(candidate_id=cv_data['candidate_id'], file=cv_data['file'], **data)

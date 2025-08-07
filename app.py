@@ -9,7 +9,6 @@ import streamlit as st
 
 # Your own modules
 from parser import CVParser
-from agent_cleaning import CleaningAgent
 from agent_extraction import ExtractionAgent
 from agent_rating import RatingAgent
 from agent_judge import JudgeAgent
@@ -34,8 +33,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.set_page_config(page_title="CV Rating Analyzer", layout="wide")
-st.title("CV Rating Analyzer")
+st.set_page_config(page_title="Analisador de CV", layout="wide")
+st.title("Analisador de CV")
 
 # ───────────────────────── Session state ───────────────────────────────────
 ss = st.session_state
@@ -45,35 +44,27 @@ ss.setdefault("stop_requested", False)  # user clicked stop?
 ss.setdefault("last_run", None)         # cached df & excel path
 
 # ───────────────────────── Inputs ──────────────────────────────────────────
-job_description = st.text_area("Paste the Job Description here", height=200)
+job_description = st.text_area("Cole a Descrição da Vaga aqui", height=200)
 
 uploaded_files = st.file_uploader(
-    "Upload candidate CV PDFs", type=["pdf"], accept_multiple_files=True
+    "Faça upload dos CVs dos candidatos em PDF", type=["pdf"], accept_multiple_files=True
 )
 
 # ───────────────────────── Start / Stop buttons ───────────────────────────
 if ss.processing:
-    if st.button("🛑  Stop", key="stop_btn"):
+    if st.button("🛑  Parar", key="stop_btn"):
         ss.stop_requested = True
-        st.warning("Stop requested — finishing current step…")
+        st.warning("Parada solicitada — finalizando etapa atual…")
 else:
-    if st.button("🟢  Process", key="process_btn"):
+    if st.button("🟢  Processar", key="process_btn"):
         ss.processing = True
         ss.start_pipeline = True
         st.rerun()         # rerun immediately so Stop appears
 
-# ───────────────────────── Helper (single-CV cleaning) ────────────────────
-def clean_cv(cv_data):
-    cleaned = CleaningAgent().clean(cv_data)
-    # Ensure candidate_id is preserved
-    if 'candidate_id' in cv_data:
-        cleaned['candidate_id'] = cv_data['candidate_id']
-    return cleaned
-
 # ───────────────────────── Heavy pipeline ─────────────────────────────────
 if ss.start_pipeline:
     if not (job_description and uploaded_files):
-        st.error("Please provide job description and at least one PDF.")
+        st.error("Por favor, forneça a descrição da vaga e pelo menos um PDF.")
         ss.processing = ss.start_pipeline = False
 
     else:
@@ -84,89 +75,52 @@ if ss.start_pipeline:
                 overall_progress = st.progress(0)
 
             # 1️⃣  Save uploaded PDFs ---------------------------------------------------
-            status_placeholder.write("Preparing files…")
-            with st.spinner("Preparing files…"):
+            status_placeholder.write("Preparando arquivos…")
+            with st.spinner("Preparando arquivos…"):
                 tmpdir = tempfile.mkdtemp()
                 for i, f in enumerate(uploaded_files):
                     if ss.stop_requested:
                         raise RuntimeError("Stopped by user")
                     with open(os.path.join(tmpdir, f.name), "wb") as out:
                         out.write(f.read())
-                    overall_progress.progress((i + 1) / len(uploaded_files) * 0.10)
+                    overall_progress.progress((i + 1) / len(uploaded_files) * 0.15)
 
-            # 2️⃣  Clean job description ------------------------------------------------
-            status_placeholder.write("Cleaning job description…")
-            with st.spinner("Cleaning job description…"):
-                cleaned_jd = CleaningAgent().clean(
-                    {"file": "job_description", "content": job_description}
-                )["content"]
-                overall_progress.progress(0.15)
-
-            # 3️⃣  Parse CVs (parallel) ----------------------------------------------------
-            status_placeholder.write(f"Parsing CVs…")
-            with st.spinner("Parsing CVs…"):
-                pdf_files = [f for f in os.listdir(tmpdir) if f.lower().endswith('.pdf')]
-                if not pdf_files:
-                    raise RuntimeError("No PDF files found in uploaded files")
+            # 2️⃣  Parse CVs (parallel) ----------------------------------------------------
+            status_placeholder.write(f"Analisando CVs…")
+            with st.spinner("Analisando CVs…"):
+                if ss.stop_requested:
+                    raise RuntimeError("Stopped by user")
                 
                 parser = CVParser(tmpdir)
-                parsed_cvs = parser.parse(max_workers=min(8, len(pdf_files)))
-                
-                # Check for parsing errors
-                error_files = [cv for cv in parsed_cvs if cv.get('error')]
-                if error_files:
-                    st.warning(f"Warning: {len(error_files)} PDF files had parsing errors: {[cv['file'] for cv in error_files]}")
-                
-                status_placeholder.write(f"✅ Parsed {len(parsed_cvs)} CVs successfully")
-                overall_progress.progress(0.25)
+                parsed_cvs = parser.parse(max_workers=8)
+                overall_progress.progress(0.15)
 
-            # 4️⃣  Clean CVs (parallel) -------------------------------------------------
-            status_placeholder.write(f"Cleaning CV content… (0/{len(parsed_cvs)})")
-            with st.spinner("Cleaning CV content…"):
-                cleaned_cvs, completed = [], 0
-                with ThreadPoolExecutor(max_workers=min(8, len(parsed_cvs))) as ex:
-                    futures = {ex.submit(clean_cv, cv): cv for cv in parsed_cvs}
-                    for fut in as_completed(futures):
-                        if ss.stop_requested:
-                            raise RuntimeError("Stopped by user")
-                        try:
-                            cleaned_cvs.append(fut.result())
-                        except Exception as err:
-                            st.error(f"❌ Cleaning {futures[fut]['file']}: {err}")
-                            cleaned_cvs.append(futures[fut])
-                        completed += 1
-                        p = 0.25 + (completed / len(parsed_cvs)) * 0.20
-                        overall_progress.progress(p)
-                        status_placeholder.write(
-                            f"Cleaning CV content… ({completed}/{len(parsed_cvs)})"
-                        )
-
-            # 5️⃣  Extract info (parallel LLM calls) -----------------------------------
-            status_placeholder.write(f"Extracting info… (0/{len(cleaned_cvs)})")
-            with st.spinner("Extracting info…"):
+            # 3️⃣  Extract info (parallel LLM calls) -----------------------------------
+            status_placeholder.write(f"Extraindo informações… (0/{len(parsed_cvs)})")
+            with st.spinner("Extraindo informações…"):
                 extractor = ExtractionAgent()
 
                 def _extract(cv):
                     return extractor.extract(cv)
 
                 infos, completed = [], 0
-                with ThreadPoolExecutor(max_workers=min(12, len(cleaned_cvs))) as ex:
-                    futures = {ex.submit(_extract, cv): cv for cv in cleaned_cvs}
+                with ThreadPoolExecutor(max_workers=min(12, len(parsed_cvs))) as ex:
+                    futures = {ex.submit(_extract, cv): cv for cv in parsed_cvs}
                     for fut in as_completed(futures):
                         if ss.stop_requested:
                             raise RuntimeError("Stopped by user")
                         infos.append(fut.result())
                         completed += 1
-                        p = 0.45 + (completed / len(cleaned_cvs)) * 0.25
+                        p = 0.15 + (completed / len(parsed_cvs)) * 0.35
                         overall_progress.progress(p)
                         status_placeholder.write(
-                            f"Extracting info… ({completed}/{len(cleaned_cvs)})"
+                            f"Extraindo informações… ({completed}/{len(parsed_cvs)})"
                         )
 
-            # 6️⃣  Rate candidates (parallel LLM calls) ---------------------------------
-            status_placeholder.write(f"Rating candidates… (0/{len(infos)})")
-            with st.spinner("Rating candidates…"):
-                rater = RatingAgent(cleaned_jd)
+            # 4️⃣  Rate candidates (parallel LLM calls) ---------------------------------
+            status_placeholder.write(f"Avaliando candidatos… (0/{len(infos)})")
+            with st.spinner("Avaliando candidatos…"):
+                rater = RatingAgent(job_description)
 
                 def _rate(info_):
                     return rater.rate(info_)
@@ -179,15 +133,15 @@ if ss.start_pipeline:
                             raise RuntimeError("Stopped by user")
                         ratings.append(fut.result())
                         completed += 1
-                        p = 0.70 + (completed / len(infos)) * 0.15
+                        p = 0.50 + (completed / len(infos)) * 0.20
                         overall_progress.progress(p)
                         status_placeholder.write(
-                            f"Rating candidates… ({completed}/{len(infos)})"
+                            f"Avaliando candidatos… ({completed}/{len(infos)})"
                         )
 
-            # 7️⃣  Judge all candidates (parallel LLM calls) --------------------------------
-            status_placeholder.write("Judging ratings for fairness and consistency…")
-            with st.spinner("Judging ratings…"):
+            # 5️⃣  Judge all candidates (parallel LLM calls) --------------------------------
+            status_placeholder.write("Julgando avaliações para justiça e consistência…")
+            with st.spinner("Julgando avaliações…"):
                 if ss.stop_requested:
                     raise RuntimeError("Stopped by user")
                 
@@ -199,25 +153,25 @@ if ss.start_pipeline:
                     judge_progress.progress(progress)
                     judge_status.write(status_text)
                 
-                judge = JudgeAgent(cleaned_jd, batch_size=5)  # Process in batches of 5
+                judge = JudgeAgent(job_description, batch_size=5)  # Process in batches of 5
                 # Use parallel processing with max_workers=4 for judge batches
                 judge_ratings = judge.judge_all(infos, ratings, progress_callback=update_judge_progress, max_workers=4)
                 
                 # Verify all candidates were processed
                 if len(judge_ratings) != len(infos):
-                    st.warning(f"Warning: Only {len(judge_ratings)} out of {len(infos)} candidates were judged. Some may have been skipped due to processing errors.")
+                    st.warning(f"Aviso: Apenas {len(judge_ratings)} de {len(infos)} candidatos foram julgados. Alguns podem ter sido pulados devido a erros de processamento.")
                 
                 judge_progress.progress(1.0)
-                judge_status.write("✅ Judge step complete!")
+                judge_status.write("✅ Etapa de julgamento concluída!")
                 overall_progress.progress(0.90)
 
-            # 8️⃣  Combine + Excel -------------------------------------------------------
+            # 6️⃣  Combine + Excel -------------------------------------------------------
             print("Number of infos:", len(infos))
             print("Number of judge_ratings:", len(judge_ratings))
             print("INFO files:", [info.file for info in infos])
             print("JUDGE files:", [rating.file for rating in judge_ratings])
-            status_placeholder.write("Generating final report…")
-            with st.spinner("Generating report…"):
+            status_placeholder.write("Gerando relatório final…")
+            with st.spinner("Gerando relatório…"):
                 df = combine(infos, ratings, judge_ratings).reset_index(drop=True)
                 print("Number of rows in final DataFrame:", len(df))
                 print("DataFrame columns:", df.columns.tolist())
@@ -226,13 +180,13 @@ if ss.start_pipeline:
                 if 'candidate_id' in df.columns:
                     print("Candidate IDs in final DataFrame:", df['candidate_id'].tolist())
                 if len(df) != len(infos):
-                    st.warning(f"Warning: {len(infos) - len(df)} candidates are missing from the final table. Check for parsing or rating errors.")
+                    st.warning(f"Aviso: {len(infos) - len(df)} candidatos estão faltando na tabela final. Verifique se há erros de análise ou avaliação.")
                 excel_path = os.path.join(tmpdir, f"cv_ratings_{uuid.uuid4().hex}.xlsx")
                 to_excel(df, excel_path)
                 overall_progress.progress(1.0)
 
-            status_placeholder.write("✅ Processing complete!")
-            st.success("Done!")
+            status_placeholder.write("✅ Processamento concluído!")
+            st.success("Concluído!")
 
             # Cache for future reruns
             ss.last_run = {"df": df, "excel_path": excel_path}
@@ -242,7 +196,7 @@ if ss.start_pipeline:
             st.warning(str(stop_err))
 
         except Exception as e:
-            st.error(f"An error occurred: {e}")
+            st.error(f"Ocorreu um erro: {e}")
             st.error(traceback.format_exc())
 
         finally:
@@ -251,12 +205,12 @@ if ss.start_pipeline:
 # ───────────────────────── Show cached results ────────────────────────────
 if ss.last_run:
     cached = ss.last_run
-    st.subheader("Latest results")
+    st.subheader("Últimos resultados")
     st.dataframe(cached["df"])
 
     with open(cached["excel_path"], "rb") as f:
         st.download_button(
-            "📥 Download Excel",
+            "📥 Baixar Excel",
             f,
             file_name="cv_ratings.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

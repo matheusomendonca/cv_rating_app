@@ -14,55 +14,84 @@ class RatingAgent:
 
     def rate(self, candidate: CandidateInfo) -> CandidateRating:
         prompt = f"""
-        You are a technical recruiter for Enacom Group, a company that devolops softwares based on optimization, machine learning and data science. 
-                
-        Based on the job description below, rate the candidate on a scale 0-10 and provide strengths, weaknesses, and a short rationale.
-
-        To create a score, consider the following:
-        - The candidate's experience and skills in relation to the job description
-        - The candidate's programming languages and frameworks in relation to the job description
-        - The candidate's education and certifications in relation to the job description
-        - The candidate's soft skills in relation to the job description
-        - The candidate's personality and fit with the company culture
-        - The candidate's alignment with the company values above
+        Você é um recrutador técnico da Enacom Group, uma empresa que desenvolve softwares baseados em otimização, machine learning e ciência de dados. 
         
-        Also infer the seniority level required for the job and the candidate's level of experience in relation to the job description.
-
-        Beware of the following:
-        - A junior candidate for a senior position is not a good fit.
-        - A senior candidate for a junior position is not a good fit.
-        - A candidate with no experience for a senior position is not a good fit.
-        - A candidate with no experience for a junior position is a good fit.
-        - A candidate with no experience for a mid-level position is not a good fit.
-        - A candidate with no experience for a senior position is not a good fit.
+        Valores da Empresa (considere estes em sua avaliação):
+        - SIMPLICIDADE, CLAREZA E OBJETIVIDADE
+        - PESSOAS COMO FOCO E FONTE DAS TRANSFORMAÇÕES
+        - RELAÇÕES DE LONGO PRAZO
+        - EXCELÊNCIA
+        - INOVAÇÃO CONTÍNUA (2019)
+        - CORAGEM PARA INOVAR (2022)
+        - RESPEITO À NATUREZA E
         
-        Job description:
+        Com base na descrição da vaga abaixo, avalie o candidato em uma escala de 0-10 e forneça pontos fortes, pontos fracos e uma justificativa curta.
+
+        Para criar uma pontuação, considere o seguinte:
+        - A experiência e habilidades do candidato em relação à descrição da vaga
+        - As linguagens de programação e frameworks do candidato em relação à descrição da vaga
+        - A educação e certificações do candidato em relação à descrição da vaga
+        - As habilidades comportamentais do candidato em relação à descrição da vaga
+        - A personalidade do candidato e adequação à cultura da empresa
+        - O alinhamento do candidato com os valores da empresa acima
+        
+        Também infira o nível de senioridade necessário para a vaga e o nível de experiência do candidato em relação à descrição da vaga.
+
+        Tenha cuidado com o seguinte:
+        - Um candidato júnior para uma posição sênior não é uma boa adequação.
+        - Um candidato sênior para uma posição júnior não é uma boa adequação.
+        - Um candidato sem experiência para uma posição sênior não é uma boa adequação.
+        - Um candidato sem experiência para uma posição júnior é uma boa adequação.
+        - Um candidato sem experiência para uma posição de nível médio não é uma boa adequação.
+        - Um candidato sem experiência para uma posição sênior não é uma boa adequação.
+        
+        Descrição da vaga:
         {self.job_description}
-
-        Candidate JSON:
-        {candidate.model_dump_json()}
-
-        Return JSON with keys: score (number), strengths, weaknesses, rationale.
-        """  # noqa: E501
-
+        
+        Informações do candidato:
+        Nome: {candidate.name}
+        Email: {candidate.email}
+        Telefone: {candidate.phone or 'Não fornecido'}
+        UF: {candidate.uf or 'Não fornecido'}
+        Cidade: {candidate.city or 'Não fornecida'}
+        Idiomas: {', '.join(candidate.languages) if candidate.languages else 'Não especificado'}
+        Linguagens de Programação: {', '.join(candidate.programming_languages) if candidate.programming_languages else 'Não especificado'}
+        Frameworks: {', '.join(candidate.frameworks) if candidate.frameworks else 'Não especificado'}
+        Anos de Experiência: {candidate.years_experience or 'Não especificado'}
+        Educação: {candidate.education or 'Não especificado'}
+        Resumo: {candidate.summary or 'Não fornecido'}
+        
+        Retorne um JSON com os seguintes campos:
+        {{
+            "score": "float - pontuação de 0 a 10",
+            "strengths": "string - pontos fortes do candidato em português",
+            "weaknesses": "string - pontos fracos do candidato em português", 
+            "rationale": "string - justificativa da pontuação em português"
+        }}
+        """
+        
         response = openai.chat.completions.create(
             model=self.model,
             messages=[
-                {"role": "system", "content": "You are a helpful assistant who returns JSON only."},
+                {"role": "system", "content": "Você é um recrutador técnico especializado. Avalie candidatos com base na descrição da vaga e retorne a avaliação em português brasileiro. Forneça pontuações justas e justificativas detalhadas."},
                 {"role": "user", "content": prompt}
             ],
             response_format={"type": "json_object"},
             temperature=0
         )
+        
         content = response.choices[0].message.content
         if content is None:
             raise ValueError("No content received from OpenAI")
+        
         obj = json.loads(content)
         
-        # Handle strengths and weaknesses fields - convert lists to strings if needed
-        if isinstance(obj.get('strengths'), list):
-            obj['strengths'] = ', '.join(str(item) for item in obj['strengths'])
-        if isinstance(obj.get('weaknesses'), list):
-            obj['weaknesses'] = ', '.join(str(item) for item in obj['weaknesses'])
+        # Ensure score is numeric
+        if 'score' in obj:
+            try:
+                obj['score'] = float(obj['score'])
+            except (ValueError, TypeError):
+                print(f"Warning: Invalid score value '{obj['score']}' for candidate {candidate.name}, using 0.0")
+                obj['score'] = 0.0
         
         return CandidateRating(candidate_id=candidate.candidate_id, file=candidate.file, **obj)
